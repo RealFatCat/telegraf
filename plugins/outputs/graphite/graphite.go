@@ -135,9 +135,9 @@ func (g *Graphite) Connect() error {
 
 func (g *Graphite) Close() error {
 	// Closing all connections
-	for _, c := range g.connections {
-		_ = c.conn.Close()
-		c.connected = false
+	for i := 0; i < len(g.connections); i++ {
+		_ = g.connections[i].conn.Close()
+		g.connections[i].connected = false
 	}
 	return nil
 }

@@ -155,6 +155,48 @@ func TestGraphiteOK(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestGraphiteClose(t *testing.T) {
+	var wg sync.WaitGroup
+	// Start TCP server
+	wg.Add(1)
+	t.Log("Starting server")
+	TCPServer1(t, &wg)
+
+	// Init plugin
+	g := Graphite{
+		Prefix:  "my.prefix",
+		Servers: []string{"localhost:12003"},
+		Log:     testutil.Logger{},
+	}
+	require.NoError(t, g.Init())
+
+	// Init metrics
+	m1 := metric.New(
+		"mymeasurement",
+		map[string]string{"host": "192.168.0.1"},
+		map[string]interface{}{"myfield": float64(3.14)},
+		time.Date(2010, time.November, 10, 23, 0, 0, 0, time.UTC),
+	)
+
+	// Prepare point list
+	metrics := []telegraf.Metric{m1}
+	err1 := g.Connect()
+	require.NoError(t, err1)
+	// Send Data
+	t.Log("Send first data")
+	err2 := g.Write(metrics)
+	require.NoError(t, err2)
+
+	// Waiting TCPserver, should reconnect and resend
+	wg.Wait()
+	t.Log("Finished Waiting for first data")
+	err := g.Close()
+	require.NoError(t, err)
+	for _, c := range g.connections {
+		require.Equal(t, false, c.connected)
+	}
+}
+
 func TestGraphiteStrictRegex(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
